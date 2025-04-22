@@ -40,6 +40,8 @@ import org.cyclonedx.model.Property;
 import org.cyclonedx.model.Service;
 import org.cyclonedx.model.metadata.ToolInformation;
 import org.pqca.errors.CouldNotLoadJavaJars;
+import org.pqca.errors.ProjectNotBuilt;
+import org.pqca.errors.ProjectsNotBuilt;
 import org.pqca.indexing.JavaIndexService;
 import org.pqca.indexing.ProjectModule;
 import org.pqca.indexing.PythonIndexService;
@@ -84,12 +86,13 @@ public class BomGenerator {
     }
 
     @Nonnull
-    public List<Bom> generateJavaBoms() throws CouldNotLoadJavaJars {
+    public List<Bom> generateJavaBoms() throws CouldNotLoadJavaJars, ProjectsNotBuilt {
         final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
         final List<ProjectModule> javaProjectModules = javaIndexService.index(null);
         final List<Bom> javaBoms = new ArrayList<>();
         final JavaPackageFinderService packageFinder =
                 new JavaPackageFinderService(projectDirectory);
+        final List<File> projectsNotBuilt = new ArrayList<>();
         for (PackageMetadata pm : packageFinder.findPackages()) {
             final List<ProjectModule> packageModules =
                     getPackageModules(javaProjectModules, pm.packageDir());
@@ -97,10 +100,18 @@ public class BomGenerator {
                 LOG.info("Scanning java package {}", pm.packageDir());
                 final JavaScannerService javaScannerService =
                         new JavaScannerService(javaJarDir, pm.packageDir());
-                final Bom javaBom = javaScannerService.scan(packageModules);
-                writeBom(pm, javaBom);
-                javaBoms.add(javaBom);
+                try {
+                    final Bom javaBom = javaScannerService.scan(packageModules);
+                    writeBom(pm, javaBom);
+                    javaBoms.add(javaBom);
+                } catch (ProjectNotBuilt pnb) {
+                    projectsNotBuilt.add(pnb.getProjectDirectory());
+                }
             }
+        }
+
+        if (!projectsNotBuilt.isEmpty()) {
+            throw new ProjectsNotBuilt(projectsNotBuilt);
         }
         return javaBoms;
 

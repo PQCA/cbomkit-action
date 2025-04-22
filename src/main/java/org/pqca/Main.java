@@ -31,6 +31,7 @@ import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Dependency;
 import org.pqca.errors.CouldNotLoadJavaJars;
+import org.pqca.errors.ProjectsNotBuilt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +39,7 @@ import org.slf4j.LoggerFactory;
 public class Main {
     private static final Logger LOG = LoggerFactory.getLogger(Main.class);
 
-    public static void main(@Nonnull String[] args) {
+    public static void main(@Nonnull String[] args) throws Exception {
         final String workspace = System.getenv("GITHUB_WORKSPACE");
         final File projectDirectory = new File(workspace);
 
@@ -59,7 +60,7 @@ public class Main {
 
             Bom consolidatedBom = createCombinedBom(boms);
             bomGenerator.writeBom(consolidatedBom);
-        } catch (CouldNotLoadJavaJars e) {
+        } catch (CouldNotLoadJavaJars | ProjectsNotBuilt e) {
             LOG.error(e.getMessage(), e);
         }
 

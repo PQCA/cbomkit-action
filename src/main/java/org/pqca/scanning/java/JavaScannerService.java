@@ -23,6 +23,7 @@ import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.util.List;
 import org.cyclonedx.model.Bom;
+import org.pqca.errors.ProjectNotBuilt;
 import org.pqca.indexing.ProjectModule;
 import org.pqca.scanning.ScannerService;
 import org.sonar.api.batch.fs.internal.DefaultFileSystem;
@@ -56,10 +57,7 @@ public final class JavaScannerService extends ScannerService {
     public synchronized Bom scan(@Nonnull List<ProjectModule> index) {
         final File targetJarClasses = new File(this.projectDirectory, "target/classes");
         if (!targetJarClasses.exists()) {
-            LOGGER.error(
-                    "No target directory found in {}. Please build the project prior to scanning.",
-                    targetJarClasses);
-            // throw exception indicating that project was not built
+            throw new ProjectNotBuilt(this.projectDirectory);
         }
 
         final SensorContextTester sensorContext = SensorContextTester.create(this.projectDirectory);
