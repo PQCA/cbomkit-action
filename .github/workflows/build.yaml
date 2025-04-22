@@ -19,7 +19,7 @@ on:
 
 env:
   REGISTRY: "ghcr.io"
-  ORG: "PQCA"
+  ORG: "IBM"
   IMAGE_NAME: "cbomkit-action"
 
 jobs:

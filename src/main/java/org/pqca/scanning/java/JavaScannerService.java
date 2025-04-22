@@ -56,8 +56,10 @@ public final class JavaScannerService extends ScannerService {
     public synchronized Bom scan(@Nonnull List<ProjectModule> index) {
         final File targetJarClasses = new File(this.projectDirectory, "target/classes");
         if (!targetJarClasses.exists()) {
-            LOGGER.warn(
-                    "No target folder found in java project. This reduces the accuracy of the findings.");
+            LOGGER.error(
+                    "No target directory found in {}. Please build the project prior to scanning.",
+                    targetJarClasses);
+            // throw exception indicating that project was not built
         }
 
         final SensorContextTester sensorContext = SensorContextTester.create(this.projectDirectory);
@@ -65,9 +67,7 @@ public final class JavaScannerService extends ScannerService {
                 new MapSettings()
                         .setProperty(SonarComponents.SONAR_BATCH_MODE_KEY, true)
                         .setProperty("sonar.java.libraries", this.getJavaDependencyJARSPath)
-                        .setProperty(
-                                "sonar.java.binaries",
-                                new File(this.projectDirectory, "target/classes").toString())
+                        .setProperty("sonar.java.binaries", targetJarClasses.toString())
                         .setProperty(SonarComponents.SONAR_AUTOSCAN, false)
                         .setProperty(SonarComponents.SONAR_BATCH_SIZE_KEY, 8 * 1024 * 1024));
         final DefaultFileSystem fileSystem = sensorContext.fileSystem();

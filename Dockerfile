@@ -1,1 +1,1 @@
-FROM ghcr.io/PQCA/cbomkit-action:latest
+FROM ghcr.io/IBM/cbomkit-action:latest
