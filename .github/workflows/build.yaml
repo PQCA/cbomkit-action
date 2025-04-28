@@ -19,7 +19,7 @@ on:
 
 env:
   REGISTRY: "ghcr.io"
-  ORG: "san"
+  ORG: "san-zrl"
   IMAGE_NAME: "cbomkit-action"
 
 jobs:
