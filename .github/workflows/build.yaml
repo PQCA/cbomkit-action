@@ -8,6 +8,10 @@
 
 name: Build CBOMkit-action
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     branches: [ "main" ]
@@ -19,7 +23,7 @@ on:
 
 env:
   REGISTRY: "ghcr.io"
-  ORG: "san-zrl"
+  ORG: "PQCA"
   IMAGE_NAME: "cbomkit-action"
 
 jobs:
