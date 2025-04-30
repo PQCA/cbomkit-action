@@ -30,8 +30,8 @@ import java.util.UUID;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Dependency;
+import org.pqca.errors.CoulNotFindJavaClassDirs;
 import org.pqca.errors.CouldNotLoadJavaJars;
-import org.pqca.errors.ProjectsNotBuilt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,7 +60,7 @@ public class Main {
 
             Bom consolidatedBom = createCombinedBom(boms);
             bomGenerator.writeBom(consolidatedBom);
-        } catch (CouldNotLoadJavaJars | ProjectsNotBuilt e) {
+        } catch (CouldNotLoadJavaJars | CoulNotFindJavaClassDirs e) {
             LOG.error(e.getMessage(), e);
         }
 

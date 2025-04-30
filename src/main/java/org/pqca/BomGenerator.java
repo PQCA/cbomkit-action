@@ -23,11 +23,14 @@ import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.cyclonedx.Version;
 import org.cyclonedx.exception.GeneratorException;
 import org.cyclonedx.generators.BomGeneratorFactory;
@@ -39,9 +42,9 @@ import org.cyclonedx.model.OrganizationalEntity;
 import org.cyclonedx.model.Property;
 import org.cyclonedx.model.Service;
 import org.cyclonedx.model.metadata.ToolInformation;
+import org.pqca.errors.CoulNotFindJavaClassDirs;
 import org.pqca.errors.CouldNotLoadJavaJars;
 import org.pqca.errors.ProjectNotBuilt;
-import org.pqca.errors.ProjectsNotBuilt;
 import org.pqca.indexing.JavaIndexService;
 import org.pqca.indexing.ProjectModule;
 import org.pqca.indexing.PythonIndexService;
@@ -58,12 +61,10 @@ public class BomGenerator {
     private static final String ACTION_NAME = "CBOMkit-action";
     private static final String ACTION_ORG = "PQCA";
 
-    @Nonnull private final String javaJarDir;
     @Nonnull private final File projectDirectory;
     @Nonnull private final File outputDir;
 
     public BomGenerator(@Nonnull File projectDirectory, File outputDir) {
-        this.javaJarDir = getJavaDependencyJARSPath();
         this.projectDirectory = projectDirectory;
         this.outputDir = outputDir;
     }
@@ -86,33 +87,48 @@ public class BomGenerator {
     }
 
     @Nonnull
-    public List<Bom> generateJavaBoms() throws CouldNotLoadJavaJars, ProjectsNotBuilt {
+    private List<String> getJavaClassDirectories() {
+        try (Stream<Path> walk = Files.walk(this.projectDirectory.toPath())) {
+            return walk.filter(p -> p.endsWith("target/classes") && Files.isDirectory(p))
+                    .map(p -> p.toString())
+                    .toList();
+        } catch (Exception e) {
+            LOG.error("Failed to find class directories: {}", e.getMessage());
+        }
+        return Collections.emptyList();
+    }
+
+    @Nonnull
+    public List<Bom> generateJavaBoms() throws CouldNotLoadJavaJars, CoulNotFindJavaClassDirs {
+        final String javaJarDir = getJavaDependencyJARSPath();
+        final List<String> targetClassDirs = getJavaClassDirectories();
+        if (targetClassDirs.isEmpty()) {
+            throw new CoulNotFindJavaClassDirs();
+        }
+
         final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
         final List<ProjectModule> javaProjectModules = javaIndexService.index(null);
         final List<Bom> javaBoms = new ArrayList<>();
         final JavaPackageFinderService packageFinder =
                 new JavaPackageFinderService(projectDirectory);
-        final List<File> projectsNotBuilt = new ArrayList<>();
         for (PackageMetadata pm : packageFinder.findPackages()) {
             final List<ProjectModule> packageModules =
                     getPackageModules(javaProjectModules, pm.packageDir());
             if (!packageModules.isEmpty()) {
                 LOG.info("Scanning java package {}", pm.packageDir());
                 final JavaScannerService javaScannerService =
-                        new JavaScannerService(javaJarDir, pm.packageDir());
+                        new JavaScannerService(javaJarDir, targetClassDirs, pm.packageDir());
                 try {
                     final Bom javaBom = javaScannerService.scan(packageModules);
                     writeBom(pm, javaBom);
                     javaBoms.add(javaBom);
                 } catch (ProjectNotBuilt pnb) {
-                    projectsNotBuilt.add(pnb.getProjectDirectory());
+                    LOG.error(
+                            "Package {} not built - skipping CBOM scan", pnb.getProjectDirectory());
                 }
             }
         }
 
-        if (!projectsNotBuilt.isEmpty()) {
-            throw new ProjectsNotBuilt(projectsNotBuilt);
-        }
         return javaBoms;
 
         //     final JavaScannerService javaScannerService =

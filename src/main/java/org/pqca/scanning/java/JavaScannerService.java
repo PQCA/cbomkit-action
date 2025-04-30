@@ -23,7 +23,6 @@ import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.util.List;
 import org.cyclonedx.model.Bom;
-import org.pqca.errors.ProjectNotBuilt;
 import org.pqca.indexing.ProjectModule;
 import org.pqca.scanning.ScannerService;
 import org.sonar.api.batch.fs.internal.DefaultFileSystem;
@@ -44,28 +43,28 @@ public final class JavaScannerService extends ScannerService {
     private static final JavaVersion JAVA_VERSION =
             new JavaVersionImpl(JavaVersionImpl.MAX_SUPPORTED);
 
-    @Nonnull private final String getJavaDependencyJARSPath;
+    @Nonnull private final String javaDependencyJARSPath;
+    @Nonnull private final List<String> targetClassDirectories;
 
     public JavaScannerService(
-            @Nonnull String getJavaDependencyJARSPath, @Nonnull File projectDirectory) {
+            @Nonnull String javaDependencyJARSPath,
+            @Nonnull List<String> targetClassDirectories,
+            @Nonnull File projectDirectory) {
         super(projectDirectory);
-        this.getJavaDependencyJARSPath = getJavaDependencyJARSPath;
+        this.javaDependencyJARSPath = javaDependencyJARSPath;
+        this.targetClassDirectories = targetClassDirectories;
     }
 
     @Override
     @Nonnull
     public synchronized Bom scan(@Nonnull List<ProjectModule> index) {
-        final File targetJarClasses = new File(this.projectDirectory, "target/classes");
-        if (!targetJarClasses.exists()) {
-            throw new ProjectNotBuilt(this.projectDirectory);
-        }
-
         final SensorContextTester sensorContext = SensorContextTester.create(this.projectDirectory);
         sensorContext.setSettings(
                 new MapSettings()
                         .setProperty(SonarComponents.SONAR_BATCH_MODE_KEY, true)
-                        .setProperty("sonar.java.libraries", this.getJavaDependencyJARSPath)
-                        .setProperty("sonar.java.binaries", targetJarClasses.toString())
+                        .setProperty("sonar.java.libraries", this.javaDependencyJARSPath)
+                        .setProperty(
+                                "sonar.java.binaries", String.join(",", targetClassDirectories))
                         .setProperty(SonarComponents.SONAR_AUTOSCAN, false)
                         .setProperty(SonarComponents.SONAR_BATCH_SIZE_KEY, 8 * 1024 * 1024));
         final DefaultFileSystem fileSystem = sensorContext.fileSystem();
