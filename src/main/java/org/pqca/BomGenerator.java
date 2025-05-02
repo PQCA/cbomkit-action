@@ -89,7 +89,7 @@ public class BomGenerator {
     @Nonnull
     private List<String> getJavaClassDirectories() {
         try (Stream<Path> walk = Files.walk(this.projectDirectory.toPath())) {
-            return walk.filter(p -> p.endsWith("target/classes") && Files.isDirectory(p))
+            return walk.filter(p -> p.endsWith("classes") && Files.isDirectory(p))
                     .map(p -> p.toString())
                     .toList();
         } catch (Exception e) {
@@ -101,9 +101,17 @@ public class BomGenerator {
     @Nonnull
     public List<Bom> generateJavaBoms() throws CouldNotLoadJavaJars, CoulNotFindJavaClassDirs {
         final String javaJarDir = getJavaDependencyJARSPath();
+        boolean requireBuild =
+                Optional.ofNullable(System.getenv("CBOMKIT_JAVA_REQUIRE_BUILD"))
+                        .map(v -> Boolean.valueOf(v))
+                        .orElse(true);
         final List<String> targetClassDirs = getJavaClassDirectories();
         if (targetClassDirs.isEmpty()) {
-            throw new CoulNotFindJavaClassDirs();
+            if (requireBuild) {
+                throw new CoulNotFindJavaClassDirs();
+            } else {
+                LOG.warn("No Java class directories found. Scanning Java code without prior build may produce less accurate CBOMs.");
+            }
         }
 
         final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
@@ -131,9 +139,9 @@ public class BomGenerator {
 
         return javaBoms;
 
-        //     final JavaScannerService javaScannerService =
-        //             new JavaScannerService(javaJarDir, projectDirectory);
-        //     return javaScannerService.scan(javaProjectModules);
+        // final JavaScannerService javaScannerService =
+        // new JavaScannerService(javaJarDir, projectDirectory);
+        // return javaScannerService.scan(javaProjectModules);
     }
 
     @Nonnull
@@ -158,7 +166,7 @@ public class BomGenerator {
         return pythonBoms;
 
         // final PythonScannerService pythonScannerService =
-        //         new PythonScannerService(projectDirectory);
+        // new PythonScannerService(projectDirectory);
         // return pythonScannerService.scan(pythonProjectModules);
     }
 
