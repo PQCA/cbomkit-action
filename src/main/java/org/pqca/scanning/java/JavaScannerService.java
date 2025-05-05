@@ -63,7 +63,8 @@ public final class JavaScannerService extends ScannerService {
                 new MapSettings()
                         .setProperty(SonarComponents.SONAR_BATCH_MODE_KEY, true)
                         .setProperty("sonar.java.libraries", this.javaDependencyJARSPath)
-                        .setProperty("sonar.java.binaries", String.join(",", targetClassDirectories))
+                        .setProperty(
+                                "sonar.java.binaries", String.join(",", targetClassDirectories))
                         .setProperty(SonarComponents.SONAR_AUTOSCAN, false)
                         .setProperty(SonarComponents.SONAR_BATCH_SIZE_KEY, 8 * 1024 * 1024));
         final DefaultFileSystem fileSystem = sensorContext.fileSystem();

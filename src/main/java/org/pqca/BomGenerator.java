@@ -88,7 +88,7 @@ public class BomGenerator {
 
     @Nonnull
     private List<String> getJavaClassDirectories() {
-        try (Stream<Path> walk = Files.walk(this.projectDirectory.toPath())) {
+        try (Stream<Path> walk = Files.walk(this.projectDirectory.toPath().toAbsolutePath())) {
             return walk.filter(p -> p.endsWith("classes") && Files.isDirectory(p))
                     .map(p -> p.toString())
                     .toList();
@@ -110,7 +110,8 @@ public class BomGenerator {
             if (requireBuild) {
                 throw new CoulNotFindJavaClassDirs();
             } else {
-                LOG.warn("No Java class directories found. Scanning Java code without prior build may produce less accurate CBOMs.");
+                LOG.warn(
+                        "No Java class directories found. Scanning Java code without prior build may produce less accurate CBOMs.");
             }
         }
 
