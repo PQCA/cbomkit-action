@@ -20,7 +20,11 @@
 package org.pqca.indexing;
 
 import jakarta.annotation.Nonnull;
+import java.nio.file.Path;
 import java.util.List;
 import org.sonar.api.batch.fs.InputFile;
 
-public record ProjectModule(@Nonnull String identifier, @Nonnull List<InputFile> inputFileList) {}
+public record ProjectModule(
+        @Nonnull String identifier,
+        @Nonnull Path packagePath,
+        @Nonnull List<InputFile> inputFileList) {}

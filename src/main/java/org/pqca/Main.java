@@ -30,8 +30,6 @@ import java.util.UUID;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Dependency;
-import org.pqca.errors.CoulNotFindJavaClassDirs;
-import org.pqca.errors.CouldNotLoadJavaJars;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,16 +51,10 @@ public class Main {
 
         final BomGenerator bomGenerator = new BomGenerator(projectDirectory, outputDir);
 
-        try {
-            List<Bom> boms = new ArrayList<>();
-            boms.addAll(bomGenerator.generateJavaBoms());
-            boms.addAll(bomGenerator.generatePythonBoms());
-
-            Bom consolidatedBom = createCombinedBom(boms);
-            bomGenerator.writeBom(consolidatedBom);
-        } catch (CouldNotLoadJavaJars | CoulNotFindJavaClassDirs e) {
-            LOG.error(e.getMessage(), e);
-        }
+        Bom javaBom = bomGenerator.generateJavaBom();
+        Bom pythonBom = bomGenerator.generatePythonBom();
+        Bom consolidatedBom = createCombinedBom(List.of(javaBom, pythonBom));
+        bomGenerator.writeBom(consolidatedBom);
 
         // set output var
         final String githubOutput = System.getenv("GITHUB_OUTPUT");

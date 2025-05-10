@@ -24,6 +24,7 @@ import com.ibm.output.IOutputFileFactory;
 import com.ibm.output.cyclondx.CBOMOutputFile;
 import jakarta.annotation.Nonnull;
 import java.io.File;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -54,9 +55,9 @@ public abstract class ScannerService implements IScannerService {
         // final CBOMOutputFileFactory fileFactory = new CBOMOutputFileFactory();
         // final CBOMOutputFile componentAsCBOM = fileFactory.createOutputFormat(nodes);
         // componentAsCBOM
-        //         .getBom()
-        //         .getComponents()
-        //         .forEach(component -> sanitizeOccurrence(this.projectDirectory, component))ß;
+        // .getBom()
+        // .getComponents()
+        // .forEach(component -> sanitizeOccurrence(baseDirectory, component));
     }
 
     @Nonnull
@@ -73,7 +74,7 @@ public abstract class ScannerService implements IScannerService {
     }
 
     static void sanitizeOccurrence(
-            @Nonnull final File projectDirectory, @Nonnull Component component) {
+            @Nonnull final File baseDirectory, @Nonnull Component component) {
         List<Occurrence> occurrenceList =
                 Optional.ofNullable(component.getEvidence())
                         .map(Evidence::getOccurrences)
@@ -82,13 +83,17 @@ public abstract class ScannerService implements IScannerService {
         if (occurrenceList.isEmpty()) {
             return;
         }
-        final String baseDirPath = projectDirectory.getAbsolutePath();
-        occurrenceList.forEach(
-                occurrence -> {
-                    if (occurrence.getLocation().startsWith(baseDirPath)) {
-                        occurrence.setLocation(
-                                occurrence.getLocation().substring(baseDirPath.length() + 1));
-                    }
-                });
+        try {
+            final String baseDirPath = baseDirectory.getCanonicalPath();
+            occurrenceList.forEach(
+                    occurrence -> {
+                        if (occurrence.getLocation().startsWith(baseDirPath)) {
+                            occurrence.setLocation(
+                                    occurrence.getLocation().substring(baseDirPath.length() + 1));
+                        }
+                    });
+        } catch (IOException ioe) {
+            // noting
+        }
     }
 }

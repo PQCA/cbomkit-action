@@ -106,7 +106,8 @@ public abstract class IndexingService {
                     projectIdentifier,
                     files.size(),
                     this.languageFileExtension);
-            projectModules.add(new ProjectModule(projectIdentifier, files));
+            projectModules.add(
+                    new ProjectModule(projectIdentifier, projectDirectory.toPath(), files));
         }
     }
 
