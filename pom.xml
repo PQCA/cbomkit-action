@@ -24,7 +24,7 @@
     <repositories>
         <repository>
             <id>github</id>
-            <url>https://maven.pkg.github.com/IBM/sonar-cryptography</url>
+            <url>https://maven.pkg.github.com/PQCA/sonar-cryptography</url>
         </repository>
     </repositories>
 
