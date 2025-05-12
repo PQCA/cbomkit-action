@@ -9,7 +9,7 @@
 name: Build CBOMkit-action
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 on:
@@ -90,6 +90,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
       # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
-      #- name: Update dependency graph
-      #  uses: advanced-security/maven-dependency-submission-action@v4
-      #  if: github.event_name != 'pull_request'
+      - name: Update dependency graph
+        uses: advanced-security/maven-dependency-submission-action@v4
+        if: github.event_name != 'pull_request'
