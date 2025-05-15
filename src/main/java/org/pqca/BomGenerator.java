@@ -24,22 +24,18 @@ import jakarta.annotation.Nullable;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.cyclonedx.Version;
 import org.cyclonedx.exception.GeneratorException;
 import org.cyclonedx.generators.BomGeneratorFactory;
@@ -76,56 +72,10 @@ public class BomGenerator {
     }
 
     @Nonnull
-    private String getJavaDependencyJARSPath() {
-        File javaJarDir =
-                Optional.ofNullable(System.getenv("CBOMKIT_JAVA_JAR_DIR"))
-                        .map(relativeDir -> new File(relativeDir))
-                        .orElseThrow(
-                                () ->
-                                        new IllegalArgumentException(
-                                                "Could not load jar dependencies for java scanning")); // Error
-        if (javaJarDir.exists() && javaJarDir.isDirectory()) {
-            return javaJarDir.getAbsolutePath();
-        }
-
-        throw new IllegalArgumentException(
-                "Jar dependencies dir for java scanning does not exist or is not directory");
-    }
-
-    @Nonnull
-    private List<String> getJavaClassDirectories() {
-        try (Stream<Path> walk = Files.walk(this.projectDirectory.toPath())) {
-            return walk.filter(p -> p.endsWith("classes") && Files.isDirectory(p))
-                    .map(p -> p.toAbsolutePath().toString())
-                    .toList();
-        } catch (Exception e) {
-            LOG.error("Failed to find class directories: {}", e.getMessage());
-        }
-        return Collections.emptyList();
-    }
-
-    @Nonnull
     public Bom generateJavaBom() {
-        final String javaJarDir = getJavaDependencyJARSPath();
-        boolean requireBuild =
-                Optional.ofNullable(System.getenv("CBOMKIT_JAVA_REQUIRE_BUILD"))
-                        .map(v -> Boolean.valueOf(v))
-                        .orElse(true);
-        final List<String> targetClassDirs = getJavaClassDirectories();
-        if (targetClassDirs.isEmpty()) {
-            if (requireBuild) {
-                throw new IllegalStateException(
-                        "No Java class directories found. Propject must be build prior to scanning");
-            } else {
-                LOG.warn(
-                        "No Java class directories found. Scanning Java code without prior build may produce less accurate CBOMs.");
-            }
-        }
-
         final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
         final List<ProjectModule> javaProjectModules = javaIndexService.index(null);
-        final JavaScannerService javaScannerService =
-                new JavaScannerService(javaJarDir, targetClassDirs, projectDirectory);
+        final JavaScannerService javaScannerService = new JavaScannerService(projectDirectory);
         Bom bom = javaScannerService.scan(javaProjectModules);
 
         List<ProjectModule> packages = sortPackages(javaProjectModules);

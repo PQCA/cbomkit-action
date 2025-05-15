@@ -22,7 +22,6 @@ package org.pqca;
 import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +38,17 @@ public class Main {
 
     public static void main(@Nonnull String[] args) throws Exception {
         final String workspace = System.getenv("GITHUB_WORKSPACE");
+        if (workspace == null) {
+            LOG.error("Missing env var GITHUB_WORKSPACE");
+            return;
+        }
+
+        final String githubOutput = System.getenv("GITHUB_OUTPUT");
+        if (githubOutput == null) {
+            LOG.error("Missing env var GITHUB_OUTPUT");
+            return;
+        }
+
         final File projectDirectory = new File(workspace);
 
         // Create output dir
@@ -46,22 +56,19 @@ public class Main {
                 Optional.ofNullable(System.getenv("CBOMKIT_OUT_DIR"))
                         .map(File::new)
                         .orElse(new File("cbom"));
-        LOG.info("Creating cbom output dir {}", outputDir);
+        LOG.info("Writing CBOMs to {}", outputDir);
         outputDir.mkdirs();
 
+        // Scan Files and create CBOMs
         final BomGenerator bomGenerator = new BomGenerator(projectDirectory, outputDir);
-
         Bom javaBom = bomGenerator.generateJavaBom();
         Bom pythonBom = bomGenerator.generatePythonBom();
         Bom consolidatedBom = createCombinedBom(List.of(javaBom, pythonBom));
         bomGenerator.writeBom(consolidatedBom);
 
-        // set output var
-        final String githubOutput = System.getenv("GITHUB_OUTPUT");
+        // Write output pattern
         try (final FileWriter outPutVarFileWriter = new FileWriter(githubOutput, true)) {
             outPutVarFileWriter.write("pattern=" + outputDir + "/cbom*.json\n");
-        } catch (IOException e) {
-            LOG.error(e.getMessage(), e);
         }
     }
 
