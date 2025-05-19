@@ -63,6 +63,6 @@ public final class PythonIndexService extends IndexingService {
 
     @Override
     boolean excludeFromIndexing(@Nonnull File file) {
-        return file.getPath().contains("tests/");
+        return file.getPath().contains("tests/") || file.getPath().contains("src/test/");
     }
 }
