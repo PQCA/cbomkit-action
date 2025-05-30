@@ -204,7 +204,8 @@ public final class JavaScannerService extends ScannerService {
     private boolean projectIsBuilt() {
         try (Stream<Path> walk = Files.walk(this.projectDirectory.toPath())) {
             return !walk.filter(p -> p.endsWith("classes") && Files.isDirectory(p))
-                    .toList().isEmpty();
+                    .toList()
+                    .isEmpty();
         } catch (Exception e) {
             LOG.error(e.getMessage());
             return false;
