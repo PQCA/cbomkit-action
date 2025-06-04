@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.cyclonedx.Version;
@@ -62,6 +63,14 @@ public class BomGenerator {
     private static final Logger LOG = LoggerFactory.getLogger(Main.class);
     private static final String ACTION_NAME = "CBOMkit-action";
     private static final String ACTION_ORG = "PQCA";
+    private static final boolean GENERATE_MODULE_CBOMS =
+            Optional.ofNullable(System.getenv("CBOMKIT_GENERATE_MODULE_CBOMS"))
+                    .map(Boolean::valueOf)
+                    .orElse(true);
+    private static final boolean WRITE_EMPTY_CBOMS =
+            Optional.ofNullable(System.getenv("CBOMKIT_WRITE_EMPTY_CBOMS"))
+                    .map(Boolean::valueOf)
+                    .orElse(true);
 
     @Nonnull private final File projectDirectory;
     @Nonnull private final File outputDir;
@@ -78,12 +87,14 @@ public class BomGenerator {
         final JavaScannerService javaScannerService = new JavaScannerService(projectDirectory);
         Bom bom = javaScannerService.scan(javaProjectModules);
 
-        List<ProjectModule> packages = sortPackages(javaProjectModules);
-        if (!packages.isEmpty()) {
-            List<String> locations = getLocations(bom);
-            for (ProjectModule projectModule : packages) {
-                Bom packageBom = extractPackageBom(bom, locations, projectModule);
-                writeBom(packageBom, projectModule);
+        if (GENERATE_MODULE_CBOMS) {
+            List<ProjectModule> packages = sortPackages(javaProjectModules);
+            if (!packages.isEmpty()) {
+                List<String> locations = getLocations(bom);
+                for (ProjectModule projectModule : packages) {
+                    Bom packageBom = extractPackageBom(bom, locations, projectModule);
+                    writeBom(packageBom, projectModule);
+                }
             }
         }
 
@@ -98,12 +109,14 @@ public class BomGenerator {
                 new PythonScannerService(projectDirectory);
         Bom bom = pythonScannerService.scan(pythonProjectModules);
 
-        List<ProjectModule> packages = sortPackages(pythonProjectModules);
-        if (!packages.isEmpty()) {
-            List<String> locations = getLocations(bom);
-            for (ProjectModule projectModule : packages) {
-                Bom packageBom = extractPackageBom(bom, locations, projectModule);
-                writeBom(packageBom, projectModule);
+        if (GENERATE_MODULE_CBOMS) {
+            List<ProjectModule> packages = sortPackages(pythonProjectModules);
+            if (!packages.isEmpty()) {
+                List<String> locations = getLocations(bom);
+                for (ProjectModule projectModule : packages) {
+                    Bom packageBom = extractPackageBom(bom, locations, projectModule);
+                    writeBom(packageBom, projectModule);
+                }
             }
         }
 
@@ -154,12 +167,14 @@ public class BomGenerator {
                     }
                 }
 
-                final String fileName = getCbomFileName(pm);
-                final File cbomFile = new File(this.outputDir, fileName);
-                LOG.info("Writing cbom {} with {} findings", cbomFile, numFindings);
+                if (WRITE_EMPTY_CBOMS || numFindings > 0) {
+                    final String fileName = getCbomFileName(pm);
+                    final File cbomFile = new File(this.outputDir, fileName);
+                    LOG.info("Writing cbom {} with {} findings", cbomFile, numFindings);
 
-                try (FileWriter writer = new FileWriter(cbomFile)) {
-                    writer.write(bomString);
+                    try (FileWriter writer = new FileWriter(cbomFile)) {
+                        writer.write(bomString);
+                    }
                 }
             }
         } catch (IOException | GeneratorException e) {

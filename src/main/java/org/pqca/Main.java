@@ -23,9 +23,12 @@ import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Dependency;
@@ -43,17 +46,11 @@ public class Main {
             return;
         }
 
-        final String githubOutput = System.getenv("GITHUB_OUTPUT");
-        if (githubOutput == null) {
-            LOG.error("Missing env var GITHUB_OUTPUT");
-            return;
-        }
-
         final File projectDirectory = new File(workspace);
 
         // Create output dir
         final File outputDir =
-                Optional.ofNullable(System.getenv("CBOMKIT_OUT_DIR"))
+                Optional.ofNullable(System.getenv("CBOMKIT_OUTPUT_DIR"))
                         .map(File::new)
                         .orElse(new File("cbom"));
         LOG.info("Writing CBOMs to {}", outputDir);
@@ -61,14 +58,33 @@ public class Main {
 
         // Scan Files and create CBOMs
         final BomGenerator bomGenerator = new BomGenerator(projectDirectory, outputDir);
-        Bom javaBom = bomGenerator.generateJavaBom();
-        Bom pythonBom = bomGenerator.generatePythonBom();
-        Bom consolidatedBom = createCombinedBom(List.of(javaBom, pythonBom));
-        bomGenerator.writeBom(consolidatedBom);
+
+        final String languagesStr = System.getenv("CBOMKIT_LANGUAGES");
+        final List<String> languages =
+                languagesStr == null || languagesStr.isEmpty()
+                        ? Collections.emptyList()
+                        : Arrays.stream(languagesStr.split(","))
+                                .map(s -> s.trim().toLowerCase())
+                                .collect(Collectors.toList());
+
+        final List<Bom> boms = new ArrayList<Bom>();
+        if (languages.isEmpty() || languages.contains("java")) {
+            boms.add(bomGenerator.generateJavaBom());
+        }
+        if (languages.isEmpty() || languages.contains("python")) {
+            boms.add(bomGenerator.generatePythonBom());
+        }
+        if (!boms.isEmpty()) {
+            Bom consolidatedBom = createCombinedBom(boms);
+            bomGenerator.writeBom(consolidatedBom);
+        }
 
         // Write output pattern
-        try (final FileWriter outPutVarFileWriter = new FileWriter(githubOutput, true)) {
-            outPutVarFileWriter.write("pattern=" + outputDir + "/cbom*.json\n");
+        final String githubOutput = System.getenv("GITHUB_OUTPUT");
+        if (githubOutput != null) {
+            try (final FileWriter outPutVarFileWriter = new FileWriter(githubOutput, true)) {
+                outPutVarFileWriter.write("pattern=" + outputDir + "/cbom*.json\n");
+            }
         }
     }
 
