@@ -54,9 +54,9 @@ public class BomGenerator {
     private static final String GIT_SERVER = System.getenv("GITHUB_SERVER_URL");
     private static final String GIT_REPO = System.getenv("GITHUB_REPOSITORY");
 
-    static final String GIT_REVISION = System.getenv("GITHUB_REF_NAME");
-    static final String GIT_COMMIT = System.getenv("GITHUB_SHA");
-    static final String GIT_URL =
+    private static final String GIT_REVISION = System.getenv("GITHUB_REF_NAME");
+    private static final String GIT_COMMIT = System.getenv("GITHUB_SHA");
+    private static final String GIT_URL =
             GIT_SERVER != null && GIT_REPO != null ? GIT_SERVER + "/" + GIT_REPO : null;
 
     private static final boolean WRITE_EMPTY_CBOMS =

@@ -72,8 +72,6 @@ public class Main {
         int numberOfScannedFiles = 0;
         int numberOfScannedLines = 0;
         CBOM consolidatedCBOM = new CBOM(new Bom());
-        consolidatedCBOM.addMetadata(
-                BomGenerator.GIT_URL, BomGenerator.GIT_REVISION, BomGenerator.GIT_COMMIT, null);
 
         // Scan java
         long scanningTime = 0;
