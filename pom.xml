@@ -55,6 +55,12 @@
             <artifactId>protobuf-java</artifactId>
             <version>4.31.1</version> <!-- Use the latest stable version -->
         </dependency>
+
+        <dependency>
+            <groupId>org.pqca</groupId>
+            <artifactId>cbomkit-lib</artifactId>
+            <version>1.0.0</version>
+        </dependency>
     </dependencies>
 
     <build>

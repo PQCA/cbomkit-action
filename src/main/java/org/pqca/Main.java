@@ -22,27 +22,29 @@ package org.pqca;
 import jakarta.annotation.Nonnull;
 import java.io.File;
 import java.io.FileWriter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import org.cyclonedx.model.Bom;
-import org.cyclonedx.model.Component;
-import org.cyclonedx.model.Dependency;
+import org.pqca.indexing.java.JavaIndexService;
+import org.pqca.indexing.python.PythonIndexService;
+import org.pqca.scanning.CBOM;
+import org.pqca.scanning.ScanResultDTO;
+import org.pqca.scanning.java.JavaScannerService;
+import org.pqca.scanning.python.PythonScannerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("java:S106")
 public class Main {
-    private static final Logger LOG = LoggerFactory.getLogger(Main.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
 
     public static void main(@Nonnull String[] args) throws Exception {
         final String workspace = System.getenv("GITHUB_WORKSPACE");
         if (workspace == null) {
-            LOG.error("Missing env var GITHUB_WORKSPACE");
+            LOGGER.error("Missing env var GITHUB_WORKSPACE");
             return;
         }
 
@@ -53,10 +55,10 @@ public class Main {
                 Optional.ofNullable(System.getenv("CBOMKIT_OUTPUT_DIR"))
                         .map(File::new)
                         .orElse(new File("cbom"));
-        LOG.info("Writing CBOMs to {}", outputDir);
+        LOGGER.info("Writing CBOMs to {}", outputDir);
         outputDir.mkdirs();
 
-        // Scan Files and create CBOMs
+        // Prepare scan
         final BomGenerator bomGenerator = new BomGenerator(projectDirectory, outputDir);
 
         final String languagesStr = System.getenv("CBOMKIT_LANGUAGES");
@@ -67,17 +69,52 @@ public class Main {
                                 .map(s -> s.trim().toLowerCase())
                                 .collect(Collectors.toList());
 
-        final List<Bom> boms = new ArrayList<Bom>();
+        int numberOfScannedFiles = 0;
+        int numberOfScannedLines = 0;
+        CBOM consolidatedCBOM = new CBOM(new Bom());
+        consolidatedCBOM.addMetadata(
+                BomGenerator.GIT_URL, BomGenerator.GIT_REVISION, BomGenerator.GIT_COMMIT, null);
+
+        // Scan java
+        long scanningTime = 0;
         if (languages.isEmpty() || languages.contains("java")) {
-            boms.add(bomGenerator.generateJavaBom());
+            final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
+            final JavaScannerService javaScannerService = new JavaScannerService(projectDirectory);
+            javaScannerService.addJavaDependencyJar(projectDirectory.getAbsolutePath());
+            javaScannerService.addJavaDependencyJar(
+                    System.getProperty("user.home") + "/.m2/repository");
+            javaScannerService.addJavaDependencyJar(System.getProperty("user.home") + "/.gradle");
+            javaScannerService.addJavaDependencyJar(System.getenv("CBOMKIT_JAVA_JAR_DIR"));
+            javaScannerService.addJavaClassDir(projectDirectory.getAbsolutePath());
+
+            ScanResultDTO javaResultDTO =
+                    bomGenerator.generateBom(javaIndexService, javaScannerService);
+            consolidatedCBOM.merge(javaResultDTO.cbom());
+            numberOfScannedFiles += javaResultDTO.numberOfScannedFiles();
+            numberOfScannedLines += javaResultDTO.numberOfScannedLines();
+            scanningTime = javaResultDTO.endTime() - javaResultDTO.startTime();
         }
+
+        // Scan python
         if (languages.isEmpty() || languages.contains("python")) {
-            boms.add(bomGenerator.generatePythonBom());
+            final PythonIndexService pythonIndexService = new PythonIndexService(projectDirectory);
+            final PythonScannerService pythonScannerService =
+                    new PythonScannerService(projectDirectory);
+
+            ScanResultDTO pythonResultDTO =
+                    bomGenerator.generateBom(pythonIndexService, pythonScannerService);
+            consolidatedCBOM.merge(pythonResultDTO.cbom());
+            numberOfScannedFiles += pythonResultDTO.numberOfScannedFiles();
+            numberOfScannedLines += pythonResultDTO.numberOfScannedLines();
+            scanningTime += (pythonResultDTO.endTime() - pythonResultDTO.startTime());
         }
-        if (!boms.isEmpty()) {
-            Bom consolidatedBom = createCombinedBom(boms);
-            bomGenerator.writeBom(consolidatedBom);
-        }
+
+        LOGGER.info(
+                "Scanned {} files with {} lines in {} seconds.",
+                numberOfScannedFiles,
+                numberOfScannedLines,
+                scanningTime / 1000.0);
+        bomGenerator.writeCBOM(consolidatedCBOM, null);
 
         // Write output pattern
         final String githubOutput = System.getenv("GITHUB_OUTPUT");
@@ -86,21 +123,5 @@ public class Main {
                 outPutVarFileWriter.write("pattern=" + outputDir + "/cbom*.json\n");
             }
         }
-    }
-
-    @Nonnull
-    private static Bom createCombinedBom(@Nonnull List<Bom> sourceBoms) {
-        final Bom bom = new Bom();
-        bom.setSerialNumber("urn:uuid:" + UUID.randomUUID());
-
-        final List<Component> components = new ArrayList<>();
-        final List<Dependency> dependencies = new ArrayList<>();
-        for (final Bom sourceBom : sourceBoms) {
-            components.addAll(sourceBom.getComponents());
-            dependencies.addAll(sourceBom.getDependencies());
-        }
-        bom.setComponents(components);
-        bom.setDependencies(dependencies);
-        return bom;
     }
 }

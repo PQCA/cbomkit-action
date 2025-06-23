@@ -22,14 +22,11 @@ package org.pqca;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,38 +34,37 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.cyclonedx.Version;
-import org.cyclonedx.exception.GeneratorException;
-import org.cyclonedx.generators.BomGeneratorFactory;
-import org.cyclonedx.generators.json.BomJsonGenerator;
 import org.cyclonedx.model.Bom;
 import org.cyclonedx.model.Component;
 import org.cyclonedx.model.Dependency;
 import org.cyclonedx.model.Evidence;
-import org.cyclonedx.model.Metadata;
-import org.cyclonedx.model.OrganizationalEntity;
-import org.cyclonedx.model.Property;
-import org.cyclonedx.model.Service;
 import org.cyclonedx.model.component.evidence.Occurrence;
-import org.cyclonedx.model.metadata.ToolInformation;
-import org.pqca.indexing.JavaIndexService;
+import org.pqca.errors.CBOMSerializationFailed;
+import org.pqca.indexing.IndexingService;
 import org.pqca.indexing.ProjectModule;
-import org.pqca.indexing.PythonIndexService;
-import org.pqca.scanning.java.JavaScannerService;
-import org.pqca.scanning.python.PythonScannerService;
+import org.pqca.scanning.CBOM;
+import org.pqca.scanning.IScannerService;
+import org.pqca.scanning.ScanResultDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BomGenerator {
-    private static final Logger LOG = LoggerFactory.getLogger(Main.class);
-    private static final String ACTION_NAME = "CBOMkit-action";
-    private static final String ACTION_ORG = "PQCA";
-    private static final boolean GENERATE_MODULE_CBOMS =
-            Optional.ofNullable(System.getenv("CBOMKIT_GENERATE_MODULE_CBOMS"))
-                    .map(Boolean::valueOf)
-                    .orElse(true);
+    private static final Logger LOGGER = LoggerFactory.getLogger(BomGenerator.class);
+
+    private static final String GIT_SERVER = System.getenv("GITHUB_SERVER_URL");
+    private static final String GIT_REPO = System.getenv("GITHUB_REPOSITORY");
+
+    static final String GIT_REVISION = System.getenv("GITHUB_REF_NAME");
+    static final String GIT_COMMIT = System.getenv("GITHUB_SHA");
+    static final String GIT_URL =
+            GIT_SERVER != null && GIT_REPO != null ? GIT_SERVER + "/" + GIT_REPO : null;
+
     private static final boolean WRITE_EMPTY_CBOMS =
             Optional.ofNullable(System.getenv("CBOMKIT_WRITE_EMPTY_CBOMS"))
+                    .map(Boolean::valueOf)
+                    .orElse(true);
+    private static final boolean GENERATE_MODULE_CBOMS =
+            Optional.ofNullable(System.getenv("CBOMKIT_GENERATE_MODULE_CBOMS"))
                     .map(Boolean::valueOf)
                     .orElse(true);
 
@@ -81,46 +77,27 @@ public class BomGenerator {
     }
 
     @Nonnull
-    public Bom generateJavaBom() {
-        final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
-        final List<ProjectModule> javaProjectModules = javaIndexService.index(null);
-        final JavaScannerService javaScannerService = new JavaScannerService(projectDirectory);
-        Bom bom = javaScannerService.scan(javaProjectModules);
+    public ScanResultDTO generateBom(IndexingService indexer, IScannerService scanner)
+            throws Exception {
+        final List<ProjectModule> projectModules = indexer.index(null);
+        ScanResultDTO scanResult = scanner.scan(projectModules);
 
-        if (GENERATE_MODULE_CBOMS) {
-            List<ProjectModule> packages = sortPackages(javaProjectModules);
-            if (!packages.isEmpty()) {
-                List<String> locations = getLocations(bom);
-                for (ProjectModule projectModule : packages) {
-                    Bom packageBom = extractPackageBom(bom, locations, projectModule);
-                    writeBom(packageBom, projectModule);
-                }
-            }
+        if (GENERATE_MODULE_CBOMS && scanResult.cbom() != null) {
+            generateModuleCBOMs(scanResult.cbom(), projectModules);
         }
 
-        return bom;
+        return scanResult;
     }
 
-    @Nonnull
-    public Bom generatePythonBom() {
-        final PythonIndexService pythonIndexService = new PythonIndexService(projectDirectory);
-        final List<ProjectModule> pythonProjectModules = pythonIndexService.index(null);
-        final PythonScannerService pythonScannerService =
-                new PythonScannerService(projectDirectory);
-        Bom bom = pythonScannerService.scan(pythonProjectModules);
-
-        if (GENERATE_MODULE_CBOMS) {
-            List<ProjectModule> packages = sortPackages(pythonProjectModules);
-            if (!packages.isEmpty()) {
-                List<String> locations = getLocations(bom);
-                for (ProjectModule projectModule : packages) {
-                    Bom packageBom = extractPackageBom(bom, locations, projectModule);
-                    writeBom(packageBom, projectModule);
-                }
+    private void generateModuleCBOMs(CBOM cbom, List<ProjectModule> modules) {
+        List<ProjectModule> packages = sortPackages(modules);
+        if (!packages.isEmpty()) {
+            List<String> locations = getLocations(cbom);
+            for (ProjectModule pm : packages) {
+                CBOM packageCBOM = extractPackageCBom(cbom, locations, pm);
+                writeCBOM(packageCBOM, pm);
             }
         }
-
-        return bom;
     }
 
     private List<ProjectModule> sortPackages(List<ProjectModule> modules) {
@@ -133,9 +110,9 @@ public class BomGenerator {
                 .toList();
     }
 
-    private List<String> getLocations(Bom bom) {
+    private List<String> getLocations(CBOM cbom) {
         return new ArrayList<String>(
-                bom.getComponents().stream()
+                cbom.cycloneDXbom().getComponents().stream()
                         .map(Component::getEvidence)
                         .filter(Objects::nonNull)
                         .map(Evidence::getOccurrences)
@@ -145,111 +122,15 @@ public class BomGenerator {
                         .toList());
     }
 
-    public void writeBom(Bom bom) {
-        writeBom(bom, null);
-    }
-
-    private void writeBom(Bom bom, ProjectModule pm) {
-        bom.setMetadata(generateMetadata(pm));
-
-        final BomJsonGenerator bomGenerator =
-                BomGeneratorFactory.createJson(Version.VERSION_16, bom);
-
-        try {
-            String bomString = bomGenerator.toJsonString();
-            if (bomString == null) {
-                LOG.error("Empty CBOM");
-            } else {
-                int numFindings = 0;
-                if (bom.getComponents() != null) {
-                    for (Component c : bom.getComponents()) {
-                        numFindings += c.getEvidence().getOccurrences().size();
-                    }
-                }
-
-                if (WRITE_EMPTY_CBOMS || numFindings > 0) {
-                    final String fileName = getCbomFileName(pm);
-                    final File cbomFile = new File(this.outputDir, fileName);
-                    LOG.info("Writing cbom {} with {} findings", cbomFile, numFindings);
-
-                    try (FileWriter writer = new FileWriter(cbomFile)) {
-                        writer.write(bomString);
-                    }
-                }
-            }
-        } catch (IOException | GeneratorException e) {
-            LOG.error(e.getMessage(), e);
-        }
-    }
-
-    public String getCbomFileName(@Nullable ProjectModule pm) {
-        StringBuilder sb = new StringBuilder("cbom");
-        if (pm != null) {
-            sb.append("_" + pm.identifier().replaceAll("/", "."));
-        }
-        sb.append(".json");
-        return sb.toString();
-    }
-
-    private Metadata generateMetadata(@Nullable ProjectModule pm) {
-        final Metadata metadata = new Metadata();
-        metadata.setTimestamp(new Date());
-
-        final ToolInformation scannerInfo = new ToolInformation();
-        final Service scannerService = new Service();
-        scannerService.setName(ACTION_NAME);
-
-        final OrganizationalEntity organization = new OrganizationalEntity();
-        organization.setName(ACTION_ORG);
-        scannerService.setProvider(organization);
-        scannerInfo.setServices(List.of(scannerService));
-        metadata.setToolChoice(scannerInfo);
-
-        final String gitServer = System.getenv("GITHUB_SERVER_URL");
-        final String gitUrl = System.getenv("GITHUB_REPOSITORY");
-        if (gitServer != null && gitUrl != null) {
-            final Property gitUrlProperty = new Property();
-            gitUrlProperty.setName("gitUrl");
-            gitUrlProperty.setValue(gitServer + "/" + gitUrl);
-            metadata.addProperty(gitUrlProperty);
-        }
-
-        final String revision = System.getenv("GITHUB_REF_NAME");
-        if (revision != null) {
-            final Property revisionProperty = new Property();
-            revisionProperty.setName("revision");
-            revisionProperty.setValue(revision);
-            metadata.addProperty(revisionProperty);
-        }
-
-        final String commit = System.getenv("GITHUB_SHA");
-        if (commit != null) {
-            final Property commitProperty = new Property();
-            commitProperty.setName("commit");
-            commitProperty.setValue(commit.substring(0, 7));
-            metadata.addProperty(commitProperty);
-        }
-
-        if (pm != null && !pm.packagePath().equals(projectDirectory.toPath())) {
-            final Path relPackageDir = projectDirectory.toPath().relativize(pm.packagePath());
-            final Property subFolderProperty = new Property();
-            subFolderProperty.setName("subfolder");
-            subFolderProperty.setValue(relPackageDir.toString());
-            metadata.addProperty(subFolderProperty);
-        }
-
-        return metadata;
-    }
-
     @Nonnull
-    public Bom extractPackageBom(
-            @Nonnull Bom bom, @Nonnull List<String> toExtract, @Nonnull ProjectModule pm) {
+    private CBOM extractPackageCBom(
+            @Nonnull CBOM cbom, @Nonnull List<String> toExtract, @Nonnull ProjectModule pm) {
         HashMap<String, Component> modComps = new HashMap<String, Component>();
         final Bom moduleBom = new Bom();
         moduleBom.setSerialNumber("urn:uuid:" + UUID.randomUUID());
 
         Path relPackagePath = this.projectDirectory.toPath().relativize(pm.packagePath());
-        for (Component c : bom.getComponents()) {
+        for (Component c : cbom.cycloneDXbom().getComponents()) {
             Evidence e = c.getEvidence();
             if (e != null) {
                 List<Occurrence> os = e.getOccurrences();
@@ -268,7 +149,7 @@ public class BomGenerator {
         moduleBom.setComponents(modComps.values().stream().collect(Collectors.toList()));
 
         HashMap<String, Dependency> modDeps = new HashMap<String, Dependency>();
-        for (Dependency d : bom.getDependencies()) {
+        for (Dependency d : cbom.cycloneDXbom().getDependencies()) {
             if (modComps.containsKey(d.getRef())) {
                 List<String> localDeps = new ArrayList<String>();
                 for (Dependency dd : d.getDependencies()) {
@@ -285,7 +166,7 @@ public class BomGenerator {
         }
         moduleBom.setDependencies(modDeps.values().stream().collect(Collectors.toList()));
 
-        return moduleBom;
+        return new CBOM(moduleBom);
     }
 
     private Component getOrNewComponent(Map<String, Component> modComps, Component c) {
@@ -314,5 +195,32 @@ public class BomGenerator {
         }
 
         return new Dependency(bomRef);
+    }
+
+    private String getCBOMFileName(@Nullable ProjectModule pm) {
+        StringBuilder sb = new StringBuilder(outputDir + "/cbom");
+        if (pm != null) {
+            sb.append("_" + pm.identifier().replaceAll("/", "."));
+        }
+        sb.append(".json");
+        return sb.toString();
+    }
+
+    public void writeCBOM(CBOM cbom, ProjectModule pm) {
+        int numberOfFindings = cbom.getNumberOfFindings();
+        if (WRITE_EMPTY_CBOMS || numberOfFindings > 0) {
+            String subFolder =
+                    !(pm == null || pm.packagePath().equals(projectDirectory.toPath()))
+                            ? projectDirectory.toPath().relativize(pm.packagePath()).toString()
+                            : null;
+            cbom.addMetadata(GIT_URL, GIT_REVISION, GIT_COMMIT, subFolder);
+            String cbomFileName = getCBOMFileName(pm);
+            try {
+                cbom.write(cbomFileName);
+                LOGGER.info("Wrote cbom {} with {} findings", cbomFileName, numberOfFindings);
+            } catch (CBOMSerializationFailed e) {
+                LOGGER.error(e.getMessage());
+            }
+        }
     }
 }
