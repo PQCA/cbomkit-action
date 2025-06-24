@@ -24,7 +24,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create CBOM
-        uses: PQCA/cbomkit-action@v2.0.0
+        uses: PQCA/cbomkit-action@v2.1.0
         id: cbom
       # Allow you to persist CBOM after a job has completed, and share 
       # that CBOM with another job in the same workflow.
