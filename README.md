@@ -26,6 +26,8 @@ jobs:
       - name: Create CBOM
         uses: PQCA/cbomkit-action@v2.1.0
         id: cbom
+        env:
+          CBOMKIT_LANGUAGES: java,python # or java or python
       # Allow you to persist CBOM after a job has completed, and share 
       # that CBOM with another job in the same workflow.
       - name: Commit changes to new branch
@@ -35,6 +37,15 @@ jobs:
           path: ${{ steps.cbom.outputs.pattern }}
           if-no-files-found: warn 
 ```
+### Environment Variables
+
+CBOMKIT_LANGUAGES: (Optional)
+A comma-separated list of programming languages to scan. Valid values: `java`, `python`, or `java,python`.
+```
+env:
+  CBOMKIT_LANGUAGES: java,python
+```
+If not set, CBOMkit will scan for both Java and Python by default. This may cause Java scanner failures if scanned repository contains only Python code and does not include a Java build step.
 
 ## Supported languages and libraries
 
@@ -48,6 +59,7 @@ and cryptographic libraries:
 | Python   | [pyca/cryptography](https://cryptography.io/en/latest/)                                       | 100%     |
 
 [^1]: We only cover the BouncyCastle *light-weight API* according to [this specification](https://javadoc.io/static/org.bouncycastle/bctls-jdk14/1.80/specifications.html)
+
 
 While the CBOMkit's scanning capabilities are currently bound to the Sonar Cryptography Plugin, the modular 
 design of this plugin allows for potential expansion to support additional languages and cryptographic libraries in 
