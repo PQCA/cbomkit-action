@@ -78,6 +78,11 @@ public class Main {
         if (languages.isEmpty() || languages.contains("java")) {
             final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
             final JavaScannerService javaScannerService = new JavaScannerService(projectDirectory);
+            javaScannerService.setRequireBuild(
+                    Optional.ofNullable(System.getenv("CBOMKIT_JAVA_REQUIRE_BUILD"))
+                            .map(String::trim)
+                            .map(v -> v.equalsIgnoreCase("true"))
+                            .orElse(true));
             javaScannerService.addJavaDependencyJar(projectDirectory.getAbsolutePath());
             javaScannerService.addJavaDependencyJar(
                     System.getProperty("user.home") + "/.m2/repository");
