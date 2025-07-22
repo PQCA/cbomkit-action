@@ -41,6 +41,15 @@ jobs:
           path: ${{ steps.cbom.outputs.pattern }}
           if-no-files-found: warn 
 ```
+### Environment Variables
+
+CBOMKIT_LANGUAGES: (Optional)
+A comma-separated list of programming languages to scan. Valid values: `java`, `python`, or `java,python`.
+```
+env:
+  CBOMKIT_LANGUAGES: java,python
+```
+If not set, CBOMkit will scan for both Java and Python by default. This may cause Java scanner failures if scanned repository contains only Python code and does not include a Java build step.
 
 ### Parameters
 
