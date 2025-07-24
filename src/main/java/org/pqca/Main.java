@@ -61,6 +61,14 @@ public class Main {
         // Prepare scan
         final BomGenerator bomGenerator = new BomGenerator(projectDirectory, outputDir);
 
+        final String excludePatternsStr = System.getenv("CBOMKIT_EXCLUDE");
+        final List<String> excludePatterns =
+                excludePatternsStr == null || excludePatternsStr.isEmpty()
+                        ? Collections.emptyList()
+                        : Arrays.stream(excludePatternsStr.split(","))
+                                .map(s -> s.trim().toLowerCase())
+                                .collect(Collectors.toList());
+
         final String languagesStr = System.getenv("CBOMKIT_LANGUAGES");
         final List<String> languages =
                 languagesStr == null || languagesStr.isEmpty()
@@ -77,6 +85,7 @@ public class Main {
         long scanningTime = 0;
         if (languages.isEmpty() || languages.contains("java")) {
             final JavaIndexService javaIndexService = new JavaIndexService(projectDirectory);
+            javaIndexService.setExcludePatterns(excludePatterns);
             final JavaScannerService javaScannerService = new JavaScannerService(projectDirectory);
             javaScannerService.setRequireBuild(
                     Optional.ofNullable(System.getenv("CBOMKIT_JAVA_REQUIRE_BUILD"))
@@ -101,6 +110,7 @@ public class Main {
         // Scan python
         if (languages.isEmpty() || languages.contains("python")) {
             final PythonIndexService pythonIndexService = new PythonIndexService(projectDirectory);
+            pythonIndexService.setExcludePatterns(excludePatterns);
             final PythonScannerService pythonScannerService =
                     new PythonScannerService(projectDirectory);
 
