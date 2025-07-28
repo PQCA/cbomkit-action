@@ -68,7 +68,9 @@ CBOMkit-action requires the following parameters passed as enviroment variables.
 CBOMkit-action's behavior can be controlled via the following additional environment variables.
 
 - CBOMKIT_OUTPUT_DIR: (Optional) Output directory for CBOM files. Defaults to "cbom" if not set.
-- CBOMKIT_LANGUAGES: (Optional) Comma-separated list of programming languages to scan. White-space will be ignored. Currently supported valeus are `java`, `python`, or `java, python`. Other values will be ignored.
+- CBOMKIT_EXCLUDE: (Optional) Comma-separated list of java regex patterns. Matches the first occurrence of a pattern in source file/dir 
+paths relative to the GITHUB_WORKSPACE. Files/dirs are excluded from scanning if any of the patterns match. By default, CBOMKit excludes test files from scanning. Setting CBOKKIT_EXCLUDE overrules this default. Setting CBOMKIT_EXCLUDE to an empty string turns off exclusion resulting in a complete scan of all source files. 
+- CBOMKIT_LANGUAGES: (Optional) Comma-separated list of programming languages to scan. White-space will be ignored. Currently supported values are `java`, `python`, or `java, python`. Other values will be ignored.
 - CBOMKIT_GENERATE_MODULE_CBOMS: (Optional) Generate CBOMs for project modules. Default value is `true`.
 = CBOMKIT_WRITE_EMTPY_CBOMS: (Optional) Also write CBOMs with 0 findings. Default value is `true`.
 - CBOMKIT_JAVA_REQUIRE_BUILD: (Optional) Java scans will terminate with an error if java files were found **and** the repo was not built prior to scanning. Default value is `true`. Setting it to `false` allows source-only scans of java repos with potentially lower accuracy.
