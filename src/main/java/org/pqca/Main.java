@@ -64,7 +64,7 @@ public class Main {
         final String excludePatternsStr = System.getenv("CBOMKIT_EXCLUDE");
         final List<String> excludePatterns =
                 excludePatternsStr == null || excludePatternsStr.isEmpty()
-                        ? Collections.emptyList()
+                        ? null
                         : Arrays.stream(excludePatternsStr.split(","))
                                 .map(s -> s.trim().toLowerCase())
                                 .collect(Collectors.toList());
