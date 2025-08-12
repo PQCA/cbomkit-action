@@ -27,7 +27,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.cyclonedx.model.Bom;
 import org.pqca.indexing.java.JavaIndexService;
 import org.pqca.indexing.python.PythonIndexService;
 import org.pqca.scanning.CBOM;
@@ -79,7 +78,7 @@ public class Main {
 
         int numberOfScannedFiles = 0;
         int numberOfScannedLines = 0;
-        CBOM consolidatedCBOM = new CBOM(new Bom());
+        CBOM consolidatedCBOM = null;
 
         // Scan java
         long scanningTime = 0;
@@ -101,7 +100,7 @@ public class Main {
 
             ScanResultDTO javaResultDTO =
                     bomGenerator.generateBom(javaIndexService, javaScannerService);
-            consolidatedCBOM.merge(javaResultDTO.cbom());
+            consolidatedCBOM = javaResultDTO.cbom();
             numberOfScannedFiles += javaResultDTO.numberOfScannedFiles();
             numberOfScannedLines += javaResultDTO.numberOfScannedLines();
             scanningTime = javaResultDTO.endTime() - javaResultDTO.startTime();
@@ -116,7 +115,12 @@ public class Main {
 
             ScanResultDTO pythonResultDTO =
                     bomGenerator.generateBom(pythonIndexService, pythonScannerService);
-            consolidatedCBOM.merge(pythonResultDTO.cbom());
+
+            if (consolidatedCBOM != null) {
+                consolidatedCBOM.merge(pythonResultDTO.cbom());
+            } else {
+                consolidatedCBOM = pythonResultDTO.cbom();
+            }
             numberOfScannedFiles += pythonResultDTO.numberOfScannedFiles();
             numberOfScannedLines += pythonResultDTO.numberOfScannedLines();
             scanningTime += (pythonResultDTO.endTime() - pythonResultDTO.startTime());
