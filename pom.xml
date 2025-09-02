@@ -6,7 +6,7 @@
 
     <groupId>org.pqca</groupId>
     <artifactId>CBOMkit-action</artifactId>
-    <version>SNAPSHOT</version>
+    <version>2.0.0-SNAPSHOT</version>
 
     <properties>
         <java.version>21</java.version>
@@ -21,7 +21,7 @@
     <repositories>
         <repository>
             <id>github</id>
-            <url>https://maven.pkg.github.com/PQCA/sonar-cryptography</url>
+            <url>https://maven.pkg.github.com/PQCA/cbomkit-lib</url>
         </repository>
     </repositories>
 
@@ -35,7 +35,7 @@
         <dependency>
             <groupId>org.pqca</groupId>
             <artifactId>cbomkit-lib</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>1.0.2</version>
         </dependency>
     </dependencies>
 
@@ -85,17 +85,6 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                            <!--artifactSet>
-                                <excludes>
-                                    <exclude>org.sonarsource.analyzer-commons:*</exclude>
-                                    <exclude>com.fasterxml.woodstox:woodstox-core</exclude>
-                                    <exclude>com.google.code.gson:*</exclude>
-                                    <exclude>com.fasterxml.jackson.core:*</exclude>
-                                    <exclude>com.google.guava:guava</exclude>
-                                    <exclude>commons-codec:commons-codec</exclude>
-                                    <exclude>com.google.code.findbugs:jsr305</exclude>
-                                </excludes>
-                            </artifactSet-->
                         </configuration>
                     </execution>
                 </executions>
