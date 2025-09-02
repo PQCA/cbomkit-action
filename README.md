@@ -21,7 +21,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Build with Maven
         # When scanning Java code, the build should be completed beforehand
         run: mvn -B clean package -DskipTests
